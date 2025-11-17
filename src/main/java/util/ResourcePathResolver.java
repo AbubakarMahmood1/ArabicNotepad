@@ -10,18 +10,18 @@ public class ResourcePathResolver {
     
     public static String getPath(Environment env, String filename) {
         String fullPath = env.name().toLowerCase() + "/" + filename;
-        
+
         try {
             URL resource = ResourcePathResolver.class.getClassLoader().getResource(fullPath);
-            
+
             if (resource != null) {
                 return fullPath;
             } else {
-                System.err.println("Resource not found: " + fullPath);
+                logger.warn("Resource not found in classpath: {}", fullPath);
                 return null;
             }
         } catch (Exception e) {
-            logger.error("Error: ResourcePathResolver: {}", e);
+            logger.error("Error resolving resource path for {}: {}", fullPath, e.getMessage(), e);
             return null;
         }
     }

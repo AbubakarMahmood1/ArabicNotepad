@@ -35,16 +35,14 @@ public class BookServer {
             registry.rebind("ConfigurationManager", configManager);
             logger.info("Server started and ConfigurationManager bound to registry.");
             registry.rebind("RemoteBookFacade", remoteFacade);
-            logger.info("Server started and RemoteBookFacade bound to registry.");
-            System.out.println("Server started...");   
-            
+            logger.info("Server started and RemoteBookFacade bound to registry on port 1099");
+
              Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 remoteFacade.shutdownThreadPool();
-                System.out.println("Server shutting down...");
+                logger.info("Server shutting down gracefully");
             }));
         } catch (RemoteException e) {
-            System.err.println("Server error: " + e.getMessage());
-             logger.error("An error occurred while starting the server.", e);
+            logger.error("Server error: {}", e.getMessage(), e);
         }
     }
 }

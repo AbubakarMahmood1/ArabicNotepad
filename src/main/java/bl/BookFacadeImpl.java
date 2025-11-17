@@ -5,9 +5,12 @@ import dto.Book;
 
 import java.util.List;
 import dto.Page;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class BookFacadeImpl implements BookFacade {
 
+    private static final Logger logger = LoggerFactory.getLogger(BookFacadeImpl.class);
     private final BookService bookService;
 
     public BookFacadeImpl(BookDAO bookDAO) {
@@ -51,7 +54,7 @@ public class BookFacadeImpl implements BookFacade {
         } else if (bookService.getBookPath() != null) {
             bookService.deleteBook(bookService.getBookPath());
         } else {
-            System.err.println("DB Disconnected, Book cannot be deleted.");
+            logger.error("Database disconnected, cannot delete book: {}", value);
         }
     }
 
@@ -86,7 +89,7 @@ public class BookFacadeImpl implements BookFacade {
         if (book != null) {
             bookService.addPage(title, page);
         } else {
-            System.err.println("Book not found with title: " + title);
+            logger.error("Book not found with title: {}", title);
         }
     }
     

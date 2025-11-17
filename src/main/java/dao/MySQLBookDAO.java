@@ -23,16 +23,37 @@ public final class MySQLBookDAO implements BookDAO {
 
     public MySQLBookDAO(DBConfig dbConfig) {
         boolean result = connect(dbConfig);
+
+        // Retry logic with exponential backoff if initial connection fails
         if (!result) {
-            int count = 0;
-            while (count < 3) {
-                result = connect(dbConfig);
-                count++;
-                if (!result) {
+            int maxRetries = 3;
+            int retryCount = 1;
+
+            while (retryCount <= maxRetries && !result) {
+                logger.warn("Connection attempt {} failed, retrying... ({}/{})",
+                           retryCount, retryCount, maxRetries);
+
+                // Exponential backoff: 1s, 2s, 4s
+                try {
+                    Thread.sleep(1000L * (1 << (retryCount - 1)));
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    logger.error("Connection retry interrupted", e);
                     break;
                 }
+
+                result = connect(dbConfig);
+                retryCount++;
+            }
+
+            if (!result) {
+                logger.error("Failed to connect to database after {} attempts", maxRetries + 1);
+                throw new RuntimeException(
+                    "Unable to establish database connection after " + (maxRetries + 1) + " attempts");
             }
         }
+
+        logger.info("Successfully connected to MySQL database");
     }
     
     public Connection getConnection()

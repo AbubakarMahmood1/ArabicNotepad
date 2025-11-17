@@ -3,8 +3,11 @@ package config;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class EnvironmentManager {
+    private static final Logger logger = LoggerFactory.getLogger(EnvironmentManager.class);
     private static final String ENV_PROPERTY = "app.env";
     private static final String CONFIG_FILE = "system.properties";
 
@@ -36,10 +39,10 @@ public class EnvironmentManager {
             properties.load(inputStream);
             return properties.getProperty(ENV_PROPERTY);
         } else {
-            System.err.println("Could not find " + CONFIG_FILE + " in the classpath.");
+            logger.warn("Could not find {} in the classpath, using default environment", CONFIG_FILE);
         }
     } catch (IOException e) {
-        System.err.println("Could not load system.properties: " + e.getMessage());
+        logger.error("Could not load {}: {}", CONFIG_FILE, e.getMessage(), e);
     }
     return null;
 }
