@@ -89,3 +89,16 @@ lib
 ## Miscellaneous
 ##############################
 *.log
+
+##############################
+## Security & Credentials
+##############################
+# Environment files with sensitive data
+.env
+.env.local
+.env.production
+*.env
+
+# Database configuration with credentials
+db.properties.local
+**/config/db.properties.production

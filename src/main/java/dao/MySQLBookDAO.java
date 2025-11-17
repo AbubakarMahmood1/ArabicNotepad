@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import util.SQLSecurityUtil;
 
 public final class MySQLBookDAO implements BookDAO {
 
@@ -134,17 +135,19 @@ public final class MySQLBookDAO implements BookDAO {
         String sql = "SELECT * FROM book WHERE title = ?";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setString(1, title);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                Book book = new Book();
-                book.setId(rs.getInt("idbook"));
-                book.setTitle(rs.getString("title"));
-                book.setHash(rs.getString("hash"));
-                book.setIdauthor(rs.getString("idauthor"));
 
-                List<Page> pages = getPagesByBookTitle(book.getTitle());
-                book.setPages(pages);
-                return book;
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    Book book = new Book();
+                    book.setId(rs.getInt("idbook"));
+                    book.setTitle(rs.getString("title"));
+                    book.setHash(rs.getString("hash"));
+                    book.setIdauthor(rs.getString("idauthor"));
+
+                    List<Page> pages = getPagesByBookTitle(book.getTitle());
+                    book.setPages(pages);
+                    return book;
+                }
             }
         } catch (SQLException e) {
             logger.error("Error retrieving book with title: {}", title, e);
@@ -310,30 +313,47 @@ public final class MySQLBookDAO implements BookDAO {
     @Override
     public List<String> searchBooksByContent(String searchText) {
         List<String> searchResults = new ArrayList<>();
+
+        // Validate search text length to prevent DoS
+        try {
+            SQLSecurityUtil.validateSearchText(searchText, 500);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid search text: {}", e.getMessage());
+            return searchResults; // Return empty list for invalid input
+        }
+
         String sql = "SELECT DISTINCT b.title, bp.content "
                 + "FROM book b "
                 + "JOIN book_pages bp ON b.idbook = bp.idbook "
-                + "WHERE bp.content LIKE ?";
+                + "WHERE bp.content LIKE ? ESCAPE '\\'";
+
+        // Escape special LIKE characters to prevent wildcard injection
+        String safeLikePattern = SQLSecurityUtil.prepareSafeLikePattern(
+            searchText, 500, SQLSecurityUtil.LikeMatchMode.CONTAINS);
 
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setString(1, "%" + searchText + "%");
-            ResultSet rs = pstmt.executeQuery();
-            while (rs.next()) {
-                String title = rs.getString("title");
-                String content = rs.getString("content");
+            pstmt.setString(1, safeLikePattern);
 
-                // Split the content into sentences
-                String[] sentences = content.split("\\. "); // Split sentences by period and space
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    String title = rs.getString("title");
+                    String content = rs.getString("content");
 
-                for (String sentence : sentences) {
-                    if (sentence.toLowerCase().contains(searchText.toLowerCase())) {
-                        // Format the result as "Title: <title>, Sentence: <matching sentence>"
-                        searchResults.add("Title: " + title + ", Sentence: " + sentence);
+                    // Split the content into sentences
+                    String[] sentences = content.split("\\. "); // Split sentences by period and space
+
+                    for (String sentence : sentences) {
+                        if (sentence.toLowerCase().contains(searchText.toLowerCase())) {
+                            // Format the result as "Title: <title>, Sentence: <matching sentence>"
+                            searchResults.add("Title: " + title + ", Sentence: " + sentence);
+                        }
                     }
                 }
             }
         } catch (SQLException e) {
             logger.error("Error searching for books by content: {}", searchText, e);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid search text: {}", e.getMessage());
         }
         return searchResults;
     }

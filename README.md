@@ -30,23 +30,109 @@ Multiple Presentation Layers: Planned expansion to add a web interface alongside
 [Installation]
 
 Prerequisites
-Java 8 or higher.
-MySQL for database management.
-Any additional dependencies (e.g., JDBC drivers).
+- Java 22 or higher
+- Maven 3.6 or higher
+- MySQL 8.0 or higher for database management
 
 Steps
-Clone the repository:
-bash
+
+1. Clone the repository:
+```bash
 git clone https://github.com/SoftwareConstructionAndDev/24f-prj-scd-21f-9462-21f9463-21f-9500.git
+cd ArabicNotepad
+```
 
-Set up MySQL and configure the connection details in the project (update the config.properties or similar file).
+2. Set up MySQL database:
+```sql
+CREATE DATABASE arabic_notepad;
+-- Create necessary tables (see schema documentation)
+```
 
-Build and run the project:
-If using an IDE, open the project and run the main application file.
-If using a command line, compile the Java source files and run the app:
-bash
-javac -cp .:path/to/mysql-connector.jar ArabicNotepad.java
-java ArabicNotepad
+3. Configure environment variables for security:
+
+**IMPORTANT SECURITY NOTE**: Never hardcode credentials in configuration files!
+
+Create a `.env` file (use `.env.example` as template):
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your database credentials:
+```bash
+# Database Configuration
+DB_USERNAME=your_database_username
+DB_PASSWORD=your_secure_password
+DB_URL=jdbc:mysql://localhost:3306/arabic_notepad
+```
+
+**On Linux/Mac**, export environment variables:
+```bash
+export DB_USERNAME="your_username"
+export DB_PASSWORD="your_password"
+export DB_URL="jdbc:mysql://localhost:3306/arabic_notepad"
+```
+
+**On Windows**, set environment variables:
+```cmd
+set DB_USERNAME=your_username
+set DB_PASSWORD=your_password
+set DB_URL=jdbc:mysql://localhost:3306/arabic_notepad
+```
+
+Or use Windows System Properties → Environment Variables to set them permanently.
+
+4. Build the project:
+```bash
+mvn clean package
+```
+
+5. Run the application:
+```bash
+# Run with environment variables
+java -jar target/ArabicNotepad-1.0-SNAPSHOT-jar-with-dependencies.jar
+
+# Or using Maven
+mvn exec:java -Dexec.mainClass="Main.Main"
+```
+
+[Security Configuration]
+
+This application implements several security measures:
+
+1. **Environment Variables for Credentials**
+   - Database credentials should NEVER be hardcoded
+   - Always use `DB_USERNAME`, `DB_PASSWORD`, and `DB_URL` environment variables
+   - The application checks environment variables first, then falls back to config files
+   - Production deployment MUST use environment variables
+
+2. **Path Traversal Protection**
+   - Book titles are validated and sanitized before file operations
+   - Special characters and path separators are blocked
+   - File paths are validated to stay within allowed directories
+
+3. **SQL Injection Protection**
+   - All database queries use parameterized statements
+   - Search inputs are validated and sanitized
+   - LIKE patterns are properly escaped
+
+4. **Input Validation**
+   - Book titles limited to 255 characters
+   - Search queries limited to 500 characters
+   - Invalid characters are rejected or sanitized
+
+5. **Resource Management**
+   - All database connections use try-with-resources
+   - ResultSets and PreparedStatements are properly closed
+   - No resource leaks
+
+[Environment Variables Reference]
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `DB_USERNAME` | Yes (Production) | - | MySQL database username |
+| `DB_PASSWORD` | Yes (Production) | - | MySQL database password |
+| `DB_URL` | Yes (Production) | jdbc:mysql://localhost:3306/arabic_notepad | JDBC connection URL |
+| `ENVIRONMENT` | No | DEVELOPMENT | Environment mode (DEVELOPMENT, TESTING, PRODUCTION, REMOTE) |
 
 [Usage]
 Creating/Uploading Files: Use the menu options or drag-and-drop to create or upload books.
@@ -59,7 +145,16 @@ Advanced analytics features.
 Multi-language support and enhanced text processing tools.
 
 [Contributing]
-Feel free to fork the repository and submit pull requests for any features or fixes you’d like to contribute.
+
+We welcome contributions! Please follow these guidelines:
+
+1. **Security First**: Never commit credentials, API keys, or sensitive data
+2. **Code Quality**: Follow existing code style and add tests for new features
+3. **Documentation**: Update README and JavaDoc for significant changes
+4. **Pull Requests**: Include clear descriptions of changes and testing performed
+
+Security Vulnerability Reporting:
+If you discover a security vulnerability, please email security@example.com instead of creating a public issue.
 
 [License]
 This project is licensed under the MIT License - see the LICENSE file for details.

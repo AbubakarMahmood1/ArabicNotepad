@@ -17,6 +17,7 @@ import java.util.logging.Level;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import util.FileUtil;
+import util.PathSecurityUtil;
 
 public class LocalStorageBookDAO implements BookDAO {
 
@@ -187,6 +188,14 @@ public class LocalStorageBookDAO implements BookDAO {
             return false;
         }
 
+        // Validate and sanitize book title for security
+        try {
+            PathSecurityUtil.validateBookTitle(book.getTitle());
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid book title for file storage: {}", book.getTitle(), e);
+            return false;
+        }
+
         String storagePath;
         if (isDbDown) {
             storagePath = localConfig.getCurrentPath();
@@ -202,7 +211,15 @@ public class LocalStorageBookDAO implements BookDAO {
             directory.mkdirs();
         }
 
-        File bookFile = new File(directory, book.getTitle() + ".md");
+        // Use secure file creation to prevent path traversal
+        File bookFile;
+        try {
+            bookFile = PathSecurityUtil.createSafeFile(directory, book.getTitle(), "md");
+        } catch (SecurityException | IllegalArgumentException e) {
+            logger.error("Security violation when creating file for book: {}", book.getTitle(), e);
+            return false;
+        }
+
         try (FileWriter writer = new FileWriter(bookFile, false)) {
             writer.write("**idauthor**: " + book.getIdauthor() + "\n");
 
@@ -218,7 +235,25 @@ public class LocalStorageBookDAO implements BookDAO {
 
     @Override
     public boolean updateBook(Book book) {
-        File bookFile = new File(localConfig.getStoragePath(), book.getTitle() + ".md");
+        // Validate and sanitize book title for security
+        try {
+            PathSecurityUtil.validateBookTitle(book.getTitle());
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid book title for file update: {}", book.getTitle(), e);
+            return false;
+        }
+
+        File directory = new File(localConfig.getStoragePath());
+
+        // Use secure file creation to prevent path traversal
+        File bookFile;
+        try {
+            bookFile = PathSecurityUtil.createSafeFile(directory, book.getTitle(), "md");
+        } catch (SecurityException | IllegalArgumentException e) {
+            logger.error("Security violation when accessing file for book: {}", book.getTitle(), e);
+            return false;
+        }
+
         if (bookFile.exists()) {
             try (FileWriter writer = new FileWriter(bookFile, false)) {
                 writer.write("**idauthor**: " + book.getIdauthor() + "\n");
