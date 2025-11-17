@@ -5,7 +5,6 @@ import dto.Page;
 import config.DBConfig;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -15,22 +14,27 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import util.SQLSecurityUtil;
+import util.ConnectionPoolManager;
 
+/**
+ * MySQL implementation of BookDAO using HikariCP connection pooling.
+ * All database operations use pooled connections for optimal performance.
+ */
 public final class MySQLBookDAO implements BookDAO {
 
-    private Connection connection;
     private static final Logger logger = LoggerFactory.getLogger(MySQLBookDAO.class);
 
     public MySQLBookDAO(DBConfig dbConfig) {
+        // Initialize connection pool with retry logic
         boolean result = connect(dbConfig);
 
-        // Retry logic with exponential backoff if initial connection fails
+        // Retry logic with exponential backoff if initial pool initialization fails
         if (!result) {
             int maxRetries = 3;
             int retryCount = 1;
 
             while (retryCount <= maxRetries && !result) {
-                logger.warn("Connection attempt {} failed, retrying... ({}/{})",
+                logger.warn("Pool initialization attempt {} failed, retrying... ({}/{})",
                            retryCount, retryCount, maxRetries);
 
                 // Exponential backoff: 1s, 2s, 4s
@@ -38,7 +42,7 @@ public final class MySQLBookDAO implements BookDAO {
                     Thread.sleep(1000L * (1 << (retryCount - 1)));
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    logger.error("Connection retry interrupted", e);
+                    logger.error("Pool initialization retry interrupted", e);
                     break;
                 }
 
@@ -47,61 +51,52 @@ public final class MySQLBookDAO implements BookDAO {
             }
 
             if (!result) {
-                logger.error("Failed to connect to database after {} attempts", maxRetries + 1);
+                logger.error("Failed to initialize connection pool after {} attempts", maxRetries + 1);
                 throw new RuntimeException(
-                    "Unable to establish database connection after " + (maxRetries + 1) + " attempts");
+                    "Unable to initialize database connection pool after " + (maxRetries + 1) + " attempts");
             }
         }
 
-        logger.info("Successfully connected to MySQL database");
-    }
-    
-    public Connection getConnection()
-    {
-        return this.connection;
-    }
-    
-    public void setConnection(Connection connection)
-    {
-        this.connection = connection;
+        logger.info("Successfully initialized MySQL connection pool");
     }
 
     @Override
     public boolean isDatabaseConnected() {
-        boolean isConnected = false;
-        String testQuery = "SELECT 1";
-
-        try (PreparedStatement pstmt = connection.prepareStatement(testQuery); ResultSet rs = pstmt.executeQuery()) {
-            if (rs.next()) {
-                isConnected = true;
-            }
-        } catch (SQLException e) {
-            logger.warn("Database connection is not active.", e);
+        if (!ConnectionPoolManager.isInitialized()) {
+            return false;
         }
 
-        return isConnected;
+        String testQuery = "SELECT 1";
+        try (Connection conn = ConnectionPoolManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(testQuery);
+             ResultSet rs = pstmt.executeQuery()) {
+
+            return rs.next();
+
+        } catch (SQLException e) {
+            logger.warn("Database connection pool is not active: {}", e.getMessage());
+            return false;
+        }
     }
 
     @Override
     public boolean connect(DBConfig dbConfig) {
-        boolean result = true;
         try {
-            String url = dbConfig.getProperty("url");
-            String user = dbConfig.getProperty("username");
-            String password = dbConfig.getProperty("password");
-            connection = DriverManager.getConnection(url, user, password);
-            logger.info("Successfully connected to the database.");
-        } catch (SQLException e) {
-            logger.error("Failed to connect to the database", e);
-            throw new RuntimeException("Failed to connect to the database", e);
+            ConnectionPoolManager.initialize(dbConfig);
+            logger.info("Successfully initialized connection pool");
+            return true;
+        } catch (Exception e) {
+            logger.error("Failed to initialize connection pool", e);
+            return false;
         }
-        return result;
     }
 
     @Override
     public boolean addBook(Book book, boolean isDbDown) {
         String sql = "INSERT INTO book (title, hash, idauthor) VALUES (?, ?, ?)";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (Connection conn = ConnectionPoolManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+
             pstmt.setString(1, book.getTitle());
             pstmt.setString(2, book.getHash());
             pstmt.setString(3, book.getIdauthor());
@@ -136,7 +131,10 @@ public final class MySQLBookDAO implements BookDAO {
     public List<Book> getAllBooks(String path) {
         List<Book> bookList = new ArrayList<>();
         String sql = "SELECT idbook, title, hash, idauthor FROM book";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql); ResultSet rs = pstmt.executeQuery()) {
+        try (Connection conn = ConnectionPoolManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+
             while (rs.next()) {
                 Book book = new Book();
                 book.setId(rs.getInt("idbook"));
@@ -154,7 +152,9 @@ public final class MySQLBookDAO implements BookDAO {
     @Override
     public Book getBookByName(String title) {
         String sql = "SELECT * FROM book WHERE title = ?";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+        try (Connection conn = ConnectionPoolManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
             pstmt.setString(1, title);
 
             try (ResultSet rs = pstmt.executeQuery()) {
@@ -181,9 +181,9 @@ public final class MySQLBookDAO implements BookDAO {
         String updateSql = "UPDATE book SET title = ?, idauthor = ? WHERE idbook = ?";
         String callUpdatePageSql = "{CALL UpdatePageContent(?, ?)}"; // Call the stored procedure
 
-        try {
-           
-            try (PreparedStatement pstmtUpdate = connection.prepareStatement(updateSql)) {
+        try (Connection conn = ConnectionPoolManager.getConnection()) {
+
+            try (PreparedStatement pstmtUpdate = conn.prepareStatement(updateSql)) {
                 pstmtUpdate.setString(1, book.getTitle());
                 pstmtUpdate.setString(2, book.getIdauthor());
                 pstmtUpdate.setInt(3, book.getId());
@@ -197,10 +197,10 @@ public final class MySQLBookDAO implements BookDAO {
                 }
             }
 
-            
+
             for (Page page : book.getPages()) {
-                try (PreparedStatement pstmtCallUpdatePage = connection.prepareStatement(callUpdatePageSql)) {
-                    pstmtCallUpdatePage.setInt(1, page.getId()); 
+                try (PreparedStatement pstmtCallUpdatePage = conn.prepareStatement(callUpdatePageSql)) {
+                    pstmtCallUpdatePage.setInt(1, page.getId());
                     pstmtCallUpdatePage.setString(2, page.getContent());
                     pstmtCallUpdatePage.execute();
                     logger.info("Updated content of page {} in book '{}'", page.getPageNumber(), book.getTitle());
@@ -219,12 +219,13 @@ public final class MySQLBookDAO implements BookDAO {
 
     @Override
     public boolean deleteBook(String title) {
-        
+
         deletePagesByBookTitle(title);
 
         String deleteSql = "DELETE FROM book WHERE title = ?";
 
-        try (PreparedStatement pstmtDelete = connection.prepareStatement(deleteSql)) {
+        try (Connection conn = ConnectionPoolManager.getConnection();
+             PreparedStatement pstmtDelete = conn.prepareStatement(deleteSql)) {
             pstmtDelete.setString(1, title);
             int rowsAffected = pstmtDelete.executeUpdate();
             if (rowsAffected > 0) {
@@ -245,14 +246,15 @@ public final class MySQLBookDAO implements BookDAO {
         String sqlGetBookId = "SELECT idbook FROM book WHERE title = ?";
         String deleteSql = "DELETE FROM book_pages WHERE idbook = ?";
 
-        try (PreparedStatement pstmtGetBookId = connection.prepareStatement(sqlGetBookId)) {
+        try (Connection conn = ConnectionPoolManager.getConnection();
+             PreparedStatement pstmtGetBookId = conn.prepareStatement(sqlGetBookId)) {
             pstmtGetBookId.setString(1, title);
             ResultSet rsBookId = pstmtGetBookId.executeQuery();
 
             if (rsBookId.next()) {
                 int bookId = rsBookId.getInt("idbook");
-            
-                try (PreparedStatement pstmtDelete = connection.prepareStatement(deleteSql)) {
+
+                try (PreparedStatement pstmtDelete = conn.prepareStatement(deleteSql)) {
                     pstmtDelete.setInt(1, bookId);
                     pstmtDelete.executeUpdate();
                     logger.info("Successfully deleted pages for book title: {}", title);
@@ -268,11 +270,13 @@ public final class MySQLBookDAO implements BookDAO {
     @Override
     public boolean isHashExists(String hash) {
         String sql = "SELECT COUNT(*) FROM book WHERE hash = ?";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+        try (Connection conn = ConnectionPoolManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, hash);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                return rs.getInt(1) > 0;
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
             }
         } catch (SQLException e) {
             logger.error("Error checking if hash exists: {}", hash, e);
@@ -283,7 +287,8 @@ public final class MySQLBookDAO implements BookDAO {
     @Override
     public boolean addPage(int bookId, Page page) {
         String sql = "INSERT INTO book_pages (idbook, page_number, content) VALUES (?, ?, ?)";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+        try (Connection conn = ConnectionPoolManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, bookId);
             pstmt.setInt(2, page.getPageNumber());
             pstmt.setString(3, page.getContent());
@@ -301,14 +306,15 @@ public final class MySQLBookDAO implements BookDAO {
         String sqlGetBookId = "SELECT idbook FROM book WHERE title = ?";
         String sqlGetPages = "SELECT * FROM book_pages WHERE idbook = ? ORDER BY page_number ASC";
 
-        try (PreparedStatement pstmtGetBookId = connection.prepareStatement(sqlGetBookId)) {
+        try (Connection conn = ConnectionPoolManager.getConnection();
+             PreparedStatement pstmtGetBookId = conn.prepareStatement(sqlGetBookId)) {
             pstmtGetBookId.setString(1, title);
             ResultSet rsBookId = pstmtGetBookId.executeQuery();
 
             if (rsBookId.next()) {
                 int bookId = rsBookId.getInt("idbook");
-    
-                try (PreparedStatement pstmtGetPages = connection.prepareStatement(sqlGetPages)) {
+
+                try (PreparedStatement pstmtGetPages = conn.prepareStatement(sqlGetPages)) {
                     pstmtGetPages.setInt(1, bookId);
                     ResultSet rsPages = pstmtGetPages.executeQuery();
 
@@ -352,7 +358,8 @@ public final class MySQLBookDAO implements BookDAO {
         String safeLikePattern = SQLSecurityUtil.prepareSafeLikePattern(
             searchText, 500, SQLSecurityUtil.LikeMatchMode.CONTAINS);
 
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+        try (Connection conn = ConnectionPoolManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, safeLikePattern);
 
             try (ResultSet rs = pstmt.executeQuery()) {
