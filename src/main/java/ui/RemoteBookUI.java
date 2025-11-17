@@ -18,8 +18,11 @@ import org.slf4j.LoggerFactory;
 
 public class RemoteBookUI extends JFrame {
 
-    private static final Logger logger = LoggerFactory.getLogger(BookUI.class);
-    
+    private static final Logger logger = LoggerFactory.getLogger(RemoteBookUI.class);
+
+    // Debouncing delay: 2 seconds (reduces DB writes by ~90%)
+    private static final int DEBOUNCE_DELAY_MS = 2000;
+
     private final Book book;
     private final RemoteBookFacade remoteFacade;
     private JTextArea textArea;
@@ -29,15 +32,19 @@ public class RemoteBookUI extends JFrame {
     private int currentPageIndex;
     private JLabel pageNumberLabel, metricsLabel;
 
+    // Timer for debouncing real-time content updates
+    private Timer contentUpdateTimer;
+
     public RemoteBookUI(Book book, RemoteBookFacade remoteFacade) {
         this.remoteFacade = remoteFacade;
         this.book = book;
 
         this.currentPageIndex = 0;
+        initializeContentUpdateDebouncer();
         initializeUI();
         initializeMetricsUpdater();
         loadContent();
-        logger.info("BookUI initialized for book: {}", book.getTitle());
+        logger.info("RemoteBookUI initialized for book: {}", book.getTitle());
     }
 
     private void initializeUI() {
@@ -161,7 +168,9 @@ public class RemoteBookUI extends JFrame {
         textArea.addKeyListener(new KeyAdapter() {
             @Override
             public void keyReleased(KeyEvent e) {
-                handleRealTimeContentUpdate();
+                // Debounce: restart timer on each keystroke
+                // Only saves to DB after user stops typing for 2 seconds
+                restartContentUpdateTimer();
             }
         });
 
@@ -294,6 +303,32 @@ public class RemoteBookUI extends JFrame {
     }
 }
 
+    /**
+     * Initializes the debouncing timer for content updates.
+     * Delays database writes until user stops typing for DEBOUNCE_DELAY_MS.
+     */
+    private void initializeContentUpdateDebouncer() {
+        contentUpdateTimer = new Timer(DEBOUNCE_DELAY_MS, e -> handleRealTimeContentUpdate());
+        contentUpdateTimer.setRepeats(false); // Only fire once per restart
+        logger.debug("Content update debouncer initialized with {}ms delay", DEBOUNCE_DELAY_MS);
+    }
+
+    /**
+     * Restarts the debounce timer. Called on every keystroke.
+     * This prevents database writes during active typing.
+     */
+    private void restartContentUpdateTimer() {
+        if (contentUpdateTimer.isRunning()) {
+            contentUpdateTimer.restart();
+        } else {
+            contentUpdateTimer.start();
+        }
+    }
+
+    /**
+     * Handles real-time content updates to the database.
+     * This method is debounced - only executes after user stops typing.
+     */
     private void handleRealTimeContentUpdate() {
         List<Page> pages = book.getPages();
         if (pages == null) {
@@ -308,18 +343,18 @@ public class RemoteBookUI extends JFrame {
             try {
                 remoteFacade.addPageByBookTitle(book.getTitle(), newPage);
             } catch (RemoteException ex) {
-                java.util.logging.Logger.getLogger(RemoteBookUI.class.getName()).log(Level.SEVERE, null, ex);
+                logger.error("Remote error adding page to book '{}'", book.getTitle(), ex);
             }
-            logger.info("Added new page to book '{}'", book.getTitle());
+            logger.info("Added new page to book '{}' (debounced)", book.getTitle());
         } else if (currentPageIndex < pages.size()) {
             Page currentPage = pages.get(currentPageIndex);
             currentPage.setContent(textArea.getText());
             try {
                 remoteFacade.updateBook(book);
             } catch (RemoteException ex) {
-                java.util.logging.Logger.getLogger(RemoteBookUI.class.getName()).log(Level.SEVERE, null, ex);
+                logger.error("Remote error updating book '{}'", book.getTitle(), ex);
             }
-            logger.info("Updated content of page {} in book '{}'", currentPageIndex + 1, book.getTitle());
+            logger.info("Updated content of page {} in book '{}' (debounced)", currentPageIndex + 1, book.getTitle());
         }
     }
 
