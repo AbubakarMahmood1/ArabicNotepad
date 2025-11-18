@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory;
  * - Reusability (components can be used in other UIs)
  *
  * Component Architecture:
- * - ContentEditorPanel: Text editing, metrics, debouncing
+ * - ContentEditorPanelWithMarkdown: Text editing, metrics, debouncing, markdown preview
  * - NavigationPanel: Page navigation controls
  * - SearchPanel: Search functionality
  * - ToolbarPanel: Export, transliterate, analyze actions
@@ -33,7 +33,7 @@ public class BookUIRefactored extends JFrame {
     private final BookFacade bookFacade;
 
     // UI Components
-    private ContentEditorPanel contentEditor;
+    private ContentEditorPanelWithMarkdown contentEditor;
     private NavigationPanel navigationPanel;
     private SearchPanel searchPanel;
     private ToolbarPanel toolbarPanel;
@@ -53,8 +53,8 @@ public class BookUIRefactored extends JFrame {
      * Initializes all UI components.
      */
     private void initializeComponents() {
-        // Content editor with content change callback
-        contentEditor = new ContentEditorPanel(
+        // Content editor with markdown support and content change callback
+        contentEditor = new ContentEditorPanelWithMarkdown(
             book,
             bookFacade,
             this::onContentChanged
