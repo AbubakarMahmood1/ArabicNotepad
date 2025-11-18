@@ -19,15 +19,94 @@ import org.slf4j.LoggerFactory;
 import util.FileUtil;
 import util.PathSecurityUtil;
 
+/**
+ * File-based implementation of {@link BookDAO} for offline and backup storage.
+ *
+ * <p>This DAO persists books as text files (.txt) or markdown files (.md) in the local
+ * file system. It serves as both a fallback mechanism when the database is unavailable
+ * and an import/export tool for book data.</p>
+ *
+ * <p><b>Key Features:</b></p>
+ * <ul>
+ *   <li><b>Offline Capability:</b> Works without database connection</li>
+ *   <li><b>Human-Readable Format:</b> Books stored as plain text/markdown</li>
+ *   <li><b>Security:</b> Validates file paths to prevent traversal attacks</li>
+ *   <li><b>Auto-Pagination:</b> Splits content into pages (20 lines per page)</li>
+ *   <li><b>Metadata Preservation:</b> Stores author ID in first line</li>
+ * </ul>
+ *
+ * <p><b>File Format:</b></p>
+ * <pre>
+ * **idauthor**: user123
+ * First page content here
+ * ...up to 20 lines...
+ *
+ * Second page content here
+ * ...up to 20 lines...
+ * </pre>
+ *
+ * <p><b>Storage Locations:</b></p>
+ * <ul>
+ *   <li><b>Normal Mode:</b> Uses {@code LocalConfig.getStoragePath()} from configuration</li>
+ *   <li><b>Database Down:</b> Uses {@code LocalConfig.getCurrentPath()} as primary, falls back to storage path</li>
+ * </ul>
+ *
+ * <p><b>Security Measures:</b></p>
+ * <ul>
+ *   <li>Validates book titles using {@link PathSecurityUtil#validateBookTitle(String)}</li>
+ *   <li>Creates files using {@link PathSecurityUtil#createSafeFile(File, String, String)}</li>
+ *   <li>Prevents path traversal attacks (e.g., "../../../etc/passwd")</li>
+ *   <li>Rejects malicious filenames (null bytes, control characters)</li>
+ * </ul>
+ *
+ * <p><b>Pagination Algorithm:</b><br>
+ * Content is automatically split into pages of {@value #MAX_LINES_PER_PAGE} lines each.
+ * Empty lines are preserved for formatting but don't count toward the line limit.</p>
+ *
+ * <p><b>Example Usage:</b></p>
+ * <pre>{@code
+ * BookDAO localDAO = new LocalStorageBookDAO();
+ *
+ * // Import books from directory
+ * List<Book> books = localDAO.getAllBooks("/path/to/books/");
+ *
+ * // Export a book to local storage
+ * Book book = createMyBook();
+ * localDAO.addBook(book, true); // true = database is down
+ *
+ * // Read single book
+ * Book book = localDAO.getBookByName("/path/to/books/MyBook.txt");
+ * }</pre>
+ *
+ * <p><b>Limitations:</b></p>
+ * <ul>
+ *   <li>Search operations not implemented (returns null)</li>
+ *   <li>Page operations not implemented (individual page add/delete)</li>
+ *   <li>Hash duplicate detection not implemented (always returns false)</li>
+ * </ul>
+ *
+ * @author ArabicNotepad Team
+ * @version 1.0
+ * @see BookDAO
+ * @see MySQLBookDAO
+ * @see InMemoryBookDAO
+ * @see PathSecurityUtil
+ * @since 1.0
+ */
 public class LocalStorageBookDAO implements BookDAO {
 
     private static final int MAX_LINES_PER_PAGE = 20;
     private static final Logger logger = LoggerFactory.getLogger(LocalStorageBookDAO.class);
-    
+
     private LocalConfig localConfig;
 
+    /**
+     * Constructs a new LocalStorageBookDAO with configuration from the ConfigurationManager.
+     *
+     * <p>Loads the {@link LocalConfig} to determine storage paths for book files.</p>
+     */
     public LocalStorageBookDAO() {
-        
+
         ConfigurationManager configManager = ConfigurationManager.getInstance();
         try {
             this.localConfig = configManager.getLocalConfig();
