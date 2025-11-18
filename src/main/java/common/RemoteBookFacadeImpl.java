@@ -15,6 +15,81 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * RMI server implementation of {@link RemoteBookFacade} with thread pool concurrency.
+ *
+ * <p>This class extends {@link UnicastRemoteObject} to enable Remote Method Invocation (RMI)
+ * and wraps a local {@link BookFacade} instance, delegating all operations to it while
+ * providing network transparency and concurrent request handling.</p>
+ *
+ * <p><b>Key Features:</b></p>
+ * <ul>
+ *   <li><b>Thread Pool:</b> Fixed thread pool ({@value #MAX_THREAD_POOL} threads) for concurrent client handling</li>
+ *   <li><b>Async Operations:</b> Write operations (insert, update, delete) execute asynchronously</li>
+ *   <li><b>Sync Operations:</b> Read operations (get, search) block until completion</li>
+ *   <li><b>Client Management:</b> Maintains list of registered clients for notifications</li>
+ *   <li><b>Connection Monitoring:</b> Ping endpoint for health checks</li>
+ * </ul>
+ *
+ * <p><b>Concurrency Model:</b></p>
+ * <pre>
+ * Write Operations (async):     Read Operations (sync):
+ * - insertBook()                 - getBookList()
+ * - updateBook()                 - getBookByName()
+ * - deleteBook()                 - exportBook()
+ * - importBook()                 - searchBooksByContent()
+ * - addPageByBookTitle()         - performAnalysis()
+ *                                - transliterate()
+ *                                - analyzeWord()
+ * </pre>
+ *
+ * <p><b>Thread Pool Configuration:</b><br>
+ * Uses a fixed thread pool with {@value #MAX_THREAD_POOL} threads. This limits concurrent
+ * operations to prevent server overload but may queue requests if all threads are busy.</p>
+ *
+ * <p><b>Error Handling:</b><br>
+ * All operations catch {@link ExecutionException} and {@link InterruptedException} from
+ * thread pool execution and convert them to {@link RemoteException} for RMI protocol.</p>
+ *
+ * <p><b>Example Usage (Server Side):</b></p>
+ * <pre>{@code
+ * // Create local facade
+ * BookDAO dao = new MySQLBookDAO(dbConfig);
+ * BookFacade facade = new BookFacadeImpl(dao);
+ *
+ * // Wrap in RMI implementation
+ * RemoteBookFacade remoteFacade = new RemoteBookFacadeImpl(facade);
+ *
+ * // Register with RMI registry
+ * Registry registry = LocateRegistry.createRegistry(1099);
+ * registry.rebind("BookService", remoteFacade);
+ *
+ * // Server is now ready for remote clients
+ * System.out.println("Server started on port 1099");
+ *
+ * // Shutdown hook
+ * Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+ *     ((RemoteBookFacadeImpl) remoteFacade).shutdownThreadPool();
+ * }));
+ * }</pre>
+ *
+ * <p><b>Lifecycle Management:</b></p>
+ * <ul>
+ *   <li><b>Startup:</b> Constructor creates thread pool and exports RMI object</li>
+ *   <li><b>Runtime:</b> Thread pool handles concurrent client requests</li>
+ *   <li><b>Shutdown:</b> Call {@link #shutdownThreadPool()} to gracefully stop (60s timeout)</li>
+ * </ul>
+ *
+ * <p><b>Thread Safety:</b> This class is thread-safe. The thread pool handles concurrent
+ * access, but {@code registeredClients} list modification is not synchronized (lazy init only).</p>
+ *
+ * @author ArabicNotepad Team
+ * @version 1.0
+ * @see RemoteBookFacade
+ * @see BookFacade
+ * @see UnicastRemoteObject
+ * @since 1.0
+ */
 public class RemoteBookFacadeImpl extends UnicastRemoteObject implements RemoteBookFacade {
 
     private final BookFacade bookFacade;
@@ -23,6 +98,15 @@ public class RemoteBookFacadeImpl extends UnicastRemoteObject implements RemoteB
     private final ExecutorService threadPool;
     private final int MAX_THREAD_POOL = 10;
 
+    /**
+     * Constructs a new RemoteBookFacadeImpl wrapping a local BookFacade.
+     *
+     * <p>Initializes the RMI infrastructure and creates a fixed thread pool
+     * for handling concurrent client requests.</p>
+     *
+     * @param bookFacade the local facade to delegate operations to; must not be null
+     * @throws RemoteException if RMI export fails
+     */
     public RemoteBookFacadeImpl(BookFacade bookFacade) throws RemoteException {
         super();
         this.bookFacade = bookFacade;
@@ -169,7 +253,28 @@ public boolean isDatabaseConnected() throws RemoteException {
         logger.info("Ping received from client");
         return true;
     }
-    
+    /**
+     * Gracefully shuts down the thread pool with a 60-second timeout.
+     *
+     * <p>This method should be called when the server is shutting down to ensure
+     * all pending operations complete and threads are properly terminated.</p>
+     *
+     * <p><b>Shutdown Process:</b></p>
+     * <ol>
+     *   <li>Initiates orderly shutdown (no new tasks accepted)</li>
+     *   <li>Waits up to 60 seconds for existing tasks to complete</li>
+     *   <li>If timeout expires, forces immediate shutdown with {@code shutdownNow()}</li>
+     *   <li>If interrupted during wait, forces shutdown and restores interrupt status</li>
+     * </ol>
+     *
+     * <p><b>Best Practice:</b> Call this in a JVM shutdown hook:</p>
+     * <pre>{@code
+     * Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+     *     remoteFacade.shutdownThreadPool();
+     *     System.out.println("Server shutdown complete");
+     * }));
+     * }</pre>
+     */
     public void shutdownThreadPool() {
         threadPool.shutdown();
             try {

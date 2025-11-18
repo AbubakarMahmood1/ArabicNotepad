@@ -7,6 +7,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import util.ResourcePathResolver;
 
+/**
+ * Configuration for user-specific settings.
+ *
+ * <p>Manages user ID and preferences loaded from user.properties based on
+ * the current environment. Used for identifying book authors and enforcing
+ * write permissions.</p>
+ *
+ * @author ArabicNotepad Team
+ * @version 1.0
+ * @see ConfigurationManager
+ * @since 1.0
+ */
 public class UserConfig extends BaseConfig {
     
     private static final String EXTERNAL_USER_PROPERTIES = Paths.get(System.getenv("APPDATA"), "ArabicNotepad", "config", "user.properties").toString();

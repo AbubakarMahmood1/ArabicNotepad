@@ -5,6 +5,17 @@ import dto.Page;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Singleton analyzer for quality phrase mining from Arabic text.
+ *
+ * <p>Extracts high-quality multi-word phrases based on frequency, length,
+ * and statistical significance. Filters stopwords and ranks by occurrence.</p>
+ *
+ * @author ArabicNotepad Team
+ * @version 1.0
+ * @see bl.BookService#performAnalysis(Book, String)
+ * @since 1.0
+ */
 public class QualityPhrasesMiner {
 
     private static volatile QualityPhrasesMiner instance;

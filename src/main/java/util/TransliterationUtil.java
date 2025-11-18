@@ -5,6 +5,17 @@ import java.text.Normalizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Singleton utility for Arabic-to-Latin transliteration.
+ *
+ * <p>Converts Arabic text to romanized Latin script using IBM ICU4J library.
+ * Thread-safe singleton with double-checked locking.</p>
+ *
+ * @author ArabicNotepad Team
+ * @version 1.0
+ * @see bl.BookService#translateToRomanEnglish(String)
+ * @since 1.0
+ */
 public class TransliterationUtil {
 
     private static volatile TransliterationUtil instance;

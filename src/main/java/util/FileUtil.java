@@ -9,6 +9,17 @@ import java.security.NoSuchAlgorithmException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Utility class for file operations and hash generation.
+ *
+ * <p>Provides SHA-256 hashing for duplicate detection and file content processing.
+ * Used by {@link dao.LocalStorageBookDAO} to calculate book hashes.</p>
+ *
+ * @author ArabicNotepad Team
+ * @version 1.0
+ * @see dao.LocalStorageBookDAO
+ * @since 1.0
+ */
 public class FileUtil {
     private static final Logger logger = LoggerFactory.getLogger(FileUtil.class);
 

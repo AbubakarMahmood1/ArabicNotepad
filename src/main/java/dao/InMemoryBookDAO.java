@@ -9,6 +9,68 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * In-memory implementation of {@link BookDAO} for testing and development purposes.
+ *
+ * <p>This DAO stores all books and pages in memory using {@link HashMap} collections,
+ * making it ideal for unit testing, integration testing, and development environments
+ * where database setup is impractical or unnecessary.</p>
+ *
+ * <p><b>Key Characteristics:</b></p>
+ * <ul>
+ *   <li><b>Volatile Storage:</b> All data is lost when application terminates</li>
+ *   <li><b>Fast Operations:</b> No I/O overhead, instant CRUD operations</li>
+ *   <li><b>Thread-Unsafe:</b> Not suitable for concurrent access without synchronization</li>
+ *   <li><b>No Persistence:</b> Data exists only in JVM heap memory</li>
+ * </ul>
+ *
+ * <p><b>Use Cases:</b></p>
+ * <ul>
+ *   <li>Unit testing business logic without database dependencies</li>
+ *   <li>Integration testing with predictable data state</li>
+ *   <li>Development and debugging without MySQL setup</li>
+ *   <li>Proof-of-concept and prototyping</li>
+ * </ul>
+ *
+ * <p><b>Data Structure:</b></p>
+ * <pre>
+ * books: Map&lt;Integer, Book&gt;    (bookId → Book object)
+ * pages: Map&lt;Integer, Page&gt;    (pageId → Page object)
+ * </pre>
+ *
+ * <p><b>ID Generation:</b><br>
+ * Book and page IDs are generated using simple counters (bookIdCounter, pageIdCounter).
+ * IDs start at 1 and increment sequentially. Not suitable for distributed systems.</p>
+ *
+ * <p><b>Example Usage:</b></p>
+ * <pre>{@code
+ * // In test setup
+ * BookDAO dao = new InMemoryBookDAO();
+ *
+ * // Add test books
+ * Book book = new Book();
+ * book.setTitle("Test Book");
+ * book.setIdauthor("testuser");
+ * dao.addBook(book, false);
+ *
+ * // Verify in test
+ * List<Book> books = dao.getAllBooks(null);
+ * assertEquals(1, books.size());
+ *
+ * // Clean up between tests
+ * ((InMemoryBookDAO) dao).clear();
+ * }</pre>
+ *
+ * <p><b>Thread Safety:</b> This class is <b>NOT</b> thread-safe. For concurrent access,
+ * wrap operations in synchronization blocks or use {@link java.util.concurrent.ConcurrentHashMap}.</p>
+ *
+ * @author ArabicNotepad Team
+ * @version 1.0
+ * @see BookDAO
+ * @see MySQLBookDAO
+ * @see LocalStorageBookDAO
+ * @since 1.0
+ */
 public final class InMemoryBookDAO implements BookDAO {
 
     private final Map<Integer, Book> books = new HashMap<>();
@@ -130,7 +192,18 @@ public final class InMemoryBookDAO implements BookDAO {
     }
     return results;
     }
-    
+    /**
+     * Clears all data from the in-memory storage.
+     *
+     * <p>This method removes all books and pages from the HashMaps and resets
+     * the ID counters back to 1. Useful for cleaning up between test cases to
+     * ensure test isolation.</p>
+     *
+     * <p><b>Use Case:</b> Call this in {@code @AfterEach} or {@code @Before} test methods
+     * to reset the DAO to a clean state.</p>
+     *
+     * <p><b>Warning:</b> All data is permanently lost. This cannot be undone.</p>
+     */
     public void clear() {
         books.clear();
         pages.clear();

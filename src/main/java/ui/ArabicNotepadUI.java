@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import util.PathSecurityUtil;
 
 public class ArabicNotepadUI extends JFrame {
 
@@ -276,8 +277,21 @@ public class ArabicNotepadUI extends JFrame {
             return;
         }
 
+        // Validate book title for security and constraints
+        try {
+            PathSecurityUtil.validateBookTitle(title);
+        } catch (IllegalArgumentException ex) {
+            JOptionPane.showMessageDialog(this,
+                "Invalid book title: " + ex.getMessage() +
+                "\n\nTitle must not contain path separators (/, \\) or exceed 255 characters.",
+                "Invalid Title",
+                JOptionPane.ERROR_MESSAGE);
+            logger.warn("User attempted to create book with invalid title: {}", title);
+            return;
+        }
+
         Book newBook = new Book();
-        newBook.setTitle(title);
+        newBook.setTitle(title.trim());
         newBook.setHash(null);
 
         List<Page> pages = new ArrayList<>();

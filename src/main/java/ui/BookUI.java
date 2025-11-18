@@ -17,7 +17,10 @@ import org.slf4j.LoggerFactory;
 public class BookUI extends JFrame {
 
     private static final Logger logger = LoggerFactory.getLogger(BookUI.class);
-    
+
+    // Debouncing delay: 2 seconds (reduces DB writes by ~90%)
+    private static final int DEBOUNCE_DELAY_MS = 2000;
+
     private final Book book;
     private final BookFacade bookFacade;
     private JTextArea textArea;
@@ -25,13 +28,17 @@ public class BookUI extends JFrame {
     private JButton rightButton;
     private JTextField searchField;
     private int currentPageIndex;
-    private JLabel pageNumberLabel, metricsLabel;;
+    private JLabel pageNumberLabel, metricsLabel;
+
+    // Timer for debouncing real-time content updates
+    private Timer contentUpdateTimer;
 
     public BookUI(Book book, BookFacade bookFacade) {
         this.bookFacade = bookFacade;
         this.book = book;
 
         this.currentPageIndex = 0;
+        initializeContentUpdateDebouncer();
         initializeUI();
         initializeMetricsUpdater();
         loadContent();
@@ -99,7 +106,9 @@ public class BookUI extends JFrame {
         textArea.addKeyListener(new KeyAdapter() {
             @Override
             public void keyReleased(KeyEvent e) {
-                handleRealTimeContentUpdate();
+                // Debounce: restart timer on each keystroke
+                // Only saves to DB after user stops typing for 2 seconds
+                restartContentUpdateTimer();
             }
         });
 
@@ -211,6 +220,32 @@ public class BookUI extends JFrame {
     }
 }
 
+    /**
+     * Initializes the debouncing timer for content updates.
+     * Delays database writes until user stops typing for DEBOUNCE_DELAY_MS.
+     */
+    private void initializeContentUpdateDebouncer() {
+        contentUpdateTimer = new Timer(DEBOUNCE_DELAY_MS, e -> handleRealTimeContentUpdate());
+        contentUpdateTimer.setRepeats(false); // Only fire once per restart
+        logger.debug("Content update debouncer initialized with {}ms delay", DEBOUNCE_DELAY_MS);
+    }
+
+    /**
+     * Restarts the debounce timer. Called on every keystroke.
+     * This prevents database writes during active typing.
+     */
+    private void restartContentUpdateTimer() {
+        if (contentUpdateTimer.isRunning()) {
+            contentUpdateTimer.restart();
+        } else {
+            contentUpdateTimer.start();
+        }
+    }
+
+    /**
+     * Handles real-time content updates to the database.
+     * This method is debounced - only executes after user stops typing.
+     */
     private void handleRealTimeContentUpdate() {
         List<Page> pages = book.getPages();
         if (pages == null) {
@@ -223,12 +258,12 @@ public class BookUI extends JFrame {
             newPage.setContent(textArea.getText());
             pages.add(newPage);
             bookFacade.addPageByBookTitle(book.getTitle(), newPage);
-            logger.info("Added new page to book '{}'", book.getTitle());
+            logger.info("Added new page to book '{}' (debounced)", book.getTitle());
         } else if (currentPageIndex < pages.size()) {
             Page currentPage = pages.get(currentPageIndex);
             currentPage.setContent(textArea.getText());
             bookFacade.updateBook(book);
-            logger.info("Updated content of page {} in book '{}'", currentPageIndex + 1, book.getTitle());
+            logger.info("Updated content of page {} in book '{}' (debounced)", currentPageIndex + 1, book.getTitle());
         }
     }
 

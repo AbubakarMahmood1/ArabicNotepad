@@ -8,6 +8,18 @@ import net.oujda_nlp_team.entity.ResultList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Singleton analyzer for Arabic word morphology and linguistics.
+ *
+ * <p>Provides detailed analysis using AlKhalil2 NLP library including
+ * root extraction, morphological patterns, and grammatical properties.
+ * Thread-safe singleton implementation.</p>
+ *
+ * @author ArabicNotepad Team
+ * @version 1.0
+ * @see bl.BookService#analyzeWord(String)
+ * @since 1.0
+ */
 public class WordAnalyzer {
 
     private static volatile WordAnalyzer instance;

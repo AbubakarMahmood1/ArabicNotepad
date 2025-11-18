@@ -9,6 +9,20 @@ import java.util.Properties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Abstract base class for all configuration objects.
+ *
+ * <p>Provides common functionality for loading properties files based on
+ * environment. Subclasses ({@link DBConfig}, {@link LocalConfig}, {@link UserConfig})
+ * extend this to load specific configuration files.</p>
+ *
+ * @author ArabicNotepad Team
+ * @version 1.0
+ * @see DBConfig
+ * @see LocalConfig
+ * @see UserConfig
+ * @since 1.0
+ */
 public abstract class BaseConfig {
     protected Properties properties = new Properties();
     protected Logger logger = LoggerFactory.getLogger(this.getClass());
