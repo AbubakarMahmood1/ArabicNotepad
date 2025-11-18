@@ -13,6 +13,18 @@ import org.apache.lucene.index.*;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.util.BytesRef;
+
+/**
+ * Singleton analyzer for TF-IDF (Term Frequency-Inverse Document Frequency) analysis.
+ *
+ * <p>Calculates keyword importance using Apache Lucene to identify significant
+ * terms in Arabic text based on frequency and document distribution.</p>
+ *
+ * @author ArabicNotepad Team
+ * @version 1.0
+ * @see bl.BookService#performAnalysis(Book, String)
+ * @since 1.0
+ */
 import java.nio.file.Files;
 import java.nio.file.Path;
 

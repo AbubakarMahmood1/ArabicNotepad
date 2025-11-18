@@ -5,6 +5,17 @@ import java.net.URL;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Utility for resolving environment-specific resource paths.
+ *
+ * <p>Locates configuration files in environment-specific subdirectories
+ * (development/, testing/, production/, remote/) on the classpath.</p>
+ *
+ * @author ArabicNotepad Team
+ * @version 1.0
+ * @see config.BaseConfig
+ * @since 1.0
+ */
 public class ResourcePathResolver {
     private static final Logger logger = LoggerFactory.getLogger(ResourcePathResolver.class);
     

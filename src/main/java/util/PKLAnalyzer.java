@@ -5,6 +5,17 @@ import dto.Page;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Singleton analyzer for PKL (Phrase Key Likelihood) statistical analysis.
+ *
+ * <p>Extracts meaningful phrases from Arabic text using statistical methods
+ * to identify multi-word expressions and key phrases.</p>
+ *
+ * @author ArabicNotepad Team
+ * @version 1.0
+ * @see bl.BookService#performAnalysis(Book, String)
+ * @since 1.0
+ */
 public class PKLAnalyzer {
 
     private static volatile PKLAnalyzer instance;

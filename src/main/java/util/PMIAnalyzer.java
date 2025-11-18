@@ -5,6 +5,17 @@ import dto.Page;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Singleton analyzer for PMI (Pointwise Mutual Information) calculation.
+ *
+ * <p>Identifies statistically significant word pairs and collocations in Arabic text
+ * by measuring association strength between co-occurring terms.</p>
+ *
+ * @author ArabicNotepad Team
+ * @version 1.0
+ * @see bl.BookService#performAnalysis(Book, String)
+ * @since 1.0
+ */
 public class PMIAnalyzer {
 
     private static volatile PMIAnalyzer instance;
