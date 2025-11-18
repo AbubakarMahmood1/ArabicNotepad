@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory;
  * - Improved maintainability and testability
  *
  * Component Architecture:
- * - RemoteContentEditorPanel: Remote text editing with RMI error handling
+ * - RemoteContentEditorPanelWithMarkdown: Remote text editing, markdown preview, RMI error handling
  * - NavigationPanel: Page navigation (reused from local UI)
  * - SearchPanel: Search functionality (reused from local UI)
  * - RemoteToolbarPanel: Remote operations with RMI error handling
@@ -33,7 +33,7 @@ public class RemoteBookUIRefactored extends JFrame {
     private final RemoteBookFacade remoteFacade;
 
     // UI Components
-    private RemoteContentEditorPanel contentEditor;
+    private RemoteContentEditorPanelWithMarkdown contentEditor;
     private NavigationPanel navigationPanel;
     private SearchPanel searchPanel;
     private RemoteToolbarPanel toolbarPanel;
@@ -53,8 +53,8 @@ public class RemoteBookUIRefactored extends JFrame {
      * Initializes all UI components.
      */
     private void initializeComponents() {
-        // Remote content editor with RMI error handling
-        contentEditor = new RemoteContentEditorPanel(
+        // Remote content editor with markdown support and RMI error handling
+        contentEditor = new RemoteContentEditorPanelWithMarkdown(
             book,
             remoteFacade,
             this::onContentChanged
