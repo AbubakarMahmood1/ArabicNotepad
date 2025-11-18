@@ -8,7 +8,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import util.ResourcePathResolver;
 
-
+/**
+ * Configuration for local file storage paths.
+ *
+ * <p>Manages storage paths for books, exports, and other local files
+ * loaded from local.properties. Used by {@link dao.LocalStorageBookDAO}
+ * for offline mode and import/export operations.</p>
+ *
+ * @author ArabicNotepad Team
+ * @version 1.0
+ * @see dao.LocalStorageBookDAO
+ * @since 1.0
+ */
 public class LocalConfig extends BaseConfig {
     
     private static final String EXTERNAL_LOCAL_PROPERTIES = Paths.get(System.getenv("APPDATA"), "ArabicNotepad", "config", "local.properties").toString();

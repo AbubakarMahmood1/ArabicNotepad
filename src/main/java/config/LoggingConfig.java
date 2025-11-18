@@ -6,7 +6,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import util.ResourcePathResolver;
 
-
+/**
+ * Configuration for application logging settings.
+ *
+ * <p>Manages log levels, output formats, and destinations loaded from
+ * logging.properties. Configures SLF4J/Logback logging framework.</p>
+ *
+ * @author ArabicNotepad Team
+ * @version 1.0
+ * @since 1.0
+ */
 public class LoggingConfig extends BaseConfig {
 
     private static final String EXTERNAL_LOGGING_PROPERTIES = Paths.get(System.getenv("APPDATA"), "ArabicNotepad", "config", "logging.properties").toString();

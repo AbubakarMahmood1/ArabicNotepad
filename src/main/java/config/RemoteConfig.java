@@ -7,6 +7,17 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 
+/**
+ * Configuration for remote RMI client connections.
+ *
+ * <p>Manages RMI server host, port, and connection settings loaded from
+ * remote.properties. Used by remote clients to connect to the server.</p>
+ *
+ * @author ArabicNotepad Team
+ * @version 1.0
+ * @see common.RemoteBookFacade
+ * @since 1.0
+ */
 public class RemoteConfig {
     private static final String REMOTE_PROPERTIES_FILE = "remote/remote.properties";
     private static final Logger logger = LoggerFactory.getLogger(RemoteConfig.class);
