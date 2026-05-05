@@ -1,160 +1,136 @@
-[ArabicNotepad]
+# ArabicNotepad
 
-ArabicNotepad is a Java-based text editor designed to handle Arabic and markdown content, providing users with basic text formatting, file management, and analytics tools. The application supports CRUD operations for managing files/books, integrates with MySQL for data storage, and offers advanced features like pagination, transliteration, and TF-IDF analytics. It is built for Windows, with potential to expand to a web version in the future, supporting multiple presentation layers.
+A Java (Swing) desktop notepad focused on **Arabic-first writing**, **Markdown preview**, and **document analytics**. ArabicNotepad stores documents as “books” composed of “pages” and supports both **local file storage** and a **MySQL-backed** storage implementation.
 
-[Features]
+> Status: active development / coursework project. The UI and core layers are implemented; see “Build status” below for the current Maven dependency caveat.
 
-Markdown Support: Basic formatting and text structuring using markdown language.
-File Management: Create, read, upload, delete, and discard files and books with ease (CRUD operations).
-Database Integration: MySQL is the primary database, with support for multiple databases through the use of facade and abstract factory patterns.
+## Features
 
-Analytics: Perform text analytics such as Term Frequency-Inverse Document Frequency (TF-IDF) and more to come.
-Transliteration: Convert between Arabic script and other writing systems.
-Pagination: Efficiently handle large files by displaying content page by page.
+- **Book-based editing**: Create, import, export, and delete documents (“books”).
+- **Pagination model**: Large documents are represented and navigated as pages.
+- **Markdown support**: Editing with a rendered Markdown view.
+- **Search**: Search books by content.
+- **Text analytics**: TF‑IDF plus additional analysis options exposed in the UI.
+- **Transliteration utilities**: Helpers for Arabic script transliteration.
+- **Multiple environments**: Development/Testing/Production/Remote configuration sets.
+- **Security hardening**: Input validation, path traversal protection, and SQL injection protections.
 
-Basic Keyboard Shortcuts: Support for commands like:
-Ctrl + C: Copy
-Ctrl + V: Paste
-Ctrl + X: Cut
-Ctrl + Z: Undo
-Ctrl + Y: Redo
+## Architecture
 
-Architecture: Three-layered architecture to separate concerns:
-Presentation Layer (UI)
-Business Logic Layer
-Data Access Layer
+ArabicNotepad follows a layered design:
 
-Dependency Inversion & Injection: Minimize coupling and promote scalable code design.
-Multiple Presentation Layers: Planned expansion to add a web interface alongside the Windows desktop app.
+- **UI (Swing)**: `ui.*` and `ui.components.*`
+- **Business layer**: `bl.*` (`BookFacade`, `BookService`)
+- **Data access layer**: `dao.*` (DAO interface + implementations)
 
-[Installation]
+Storage backends are abstracted via `BookDAO` and `BookDAOFactory`. Current implementations include:
 
-Prerequisites
-- Java 22 or higher
-- Maven 3.6 or higher
-- MySQL 8.0 or higher for database management
+- `dao.LocalStorageBookDAO` (Markdown files on disk)
+- `dao.MySQLBookDAO` (MySQL database)
 
-Steps
+The entry point is `src/main/java/Main/Main.java`.
 
-1. Clone the repository:
+## Tech Stack
+
+- Java **22**
+- Maven
+- Swing UI
+- MySQL (optional; required for DB backend)
+- Lucene / Stanford CoreNLP (analysis/search helpers)
+
+## Build Status (Important)
+
+At the time of this README update, `mvn test` fails in a fresh environment because the dependency
+`alkhalil:AlKhalilMorphoSys2:1.0.0` is **not available from Maven Central**, so Maven cannot resolve it.
+
+If you have access to that library, you can:
+
+- Install it into your local Maven repository, or
+- Add a reachable repository that hosts it, or
+- Temporarily remove/replace that dependency for CI builds.
+
+## Getting Started
+
+### Prerequisites
+
+- Java 22+
+- Maven 3.6+
+
+Optional (for MySQL backend):
+
+- MySQL 8+
+
+### Clone
+
 ```bash
-git clone https://github.com/SoftwareConstructionAndDev/24f-prj-scd-21f-9462-21f9463-21f-9500.git
+git clone https://github.com/AbubakarMahmood1/ArabicNotepad.git
 cd ArabicNotepad
 ```
 
-2. Set up MySQL database:
-```sql
-CREATE DATABASE arabic_notepad;
--- Create necessary tables (see schema documentation)
-```
+### Configure (DB credentials)
 
-3. Configure environment variables for security:
+Credentials must not be committed. Use environment variables (recommended) or a local `.env` file.
 
-**IMPORTANT SECURITY NOTE**: Never hardcode credentials in configuration files!
-
-Create a `.env` file (use `.env.example` as template):
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` with your database credentials:
-```bash
-# Database Configuration
-DB_USERNAME=your_database_username
-DB_PASSWORD=your_secure_password
-DB_URL=jdbc:mysql://localhost:3306/arabic_notepad
-```
+Environment variables:
 
-**On Linux/Mac**, export environment variables:
-```bash
-export DB_USERNAME="your_username"
-export DB_PASSWORD="your_password"
-export DB_URL="jdbc:mysql://localhost:3306/arabic_notepad"
-```
+- `DB_USERNAME`
+- `DB_PASSWORD`
+- `DB_URL` (example: `jdbc:mysql://localhost:3306/arabic_notepad`)
+- `ENVIRONMENT` (optional): `DEVELOPMENT`, `TESTING`, `PRODUCTION`, `REMOTE`
 
-**On Windows**, set environment variables:
-```cmd
-set DB_USERNAME=your_username
-set DB_PASSWORD=your_password
-set DB_URL=jdbc:mysql://localhost:3306/arabic_notepad
-```
+### Build
 
-Or use Windows System Properties → Environment Variables to set them permanently.
-
-4. Build the project:
 ```bash
 mvn clean package
 ```
 
-5. Run the application:
-```bash
-# Run with environment variables
-java -jar target/ArabicNotepad-1.0-SNAPSHOT-jar-with-dependencies.jar
+### Run
 
-# Or using Maven
+```bash
 mvn exec:java -Dexec.mainClass="Main.Main"
 ```
 
-[Security Configuration]
+Or run the assembled JAR:
 
-This application implements several security measures:
+```bash
+java -jar target/ArabicNotepad-1.0-SNAPSHOT-jar-with-dependencies.jar
+```
 
-1. **Environment Variables for Credentials**
-   - Database credentials should NEVER be hardcoded
-   - Always use `DB_USERNAME`, `DB_PASSWORD`, and `DB_URL` environment variables
-   - The application checks environment variables first, then falls back to config files
-   - Production deployment MUST use environment variables
+## Project Layout
 
-2. **Path Traversal Protection**
-   - Book titles are validated and sanitized before file operations
-   - Special characters and path separators are blocked
-   - File paths are validated to stay within allowed directories
+```text
+src/
+  main/java/
+    Main/                 # App entry point
+    ui/                   # Swing UI
+    bl/                   # Business layer (facade/service)
+    dao/                  # Storage backends
+    dto/                  # Book/Page model
+    util/                 # Markdown + analysis + security utilities
+  main/resources/
+    development|testing|production|remote/  # Environment configs
+  test/java/              # JUnit tests
+```
 
-3. **SQL Injection Protection**
-   - All database queries use parameterized statements
-   - Search inputs are validated and sanitized
-   - LIKE patterns are properly escaped
+## Security Notes
 
-4. **Input Validation**
-   - Book titles limited to 255 characters
-   - Search queries limited to 500 characters
-   - Invalid characters are rejected or sanitized
+- **No hardcoded credentials**: Use env vars / `.env`.
+- **Path traversal protections**: Book titles are validated to prevent unsafe file paths.
+- **SQL injection mitigations**: Parameterized statements + input constraints.
 
-5. **Resource Management**
-   - All database connections use try-with-resources
-   - ResultSets and PreparedStatements are properly closed
-   - No resource leaks
+If you discover a security issue, please open a GitHub Security Advisory or follow `SECURITY.md`.
 
-[Environment Variables Reference]
+## Contributing
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `DB_USERNAME` | Yes (Production) | - | MySQL database username |
-| `DB_PASSWORD` | Yes (Production) | - | MySQL database password |
-| `DB_URL` | Yes (Production) | jdbc:mysql://localhost:3306/arabic_notepad | JDBC connection URL |
-| `ENVIRONMENT` | No | DEVELOPMENT | Environment mode (DEVELOPMENT, TESTING, PRODUCTION, REMOTE) |
+Issues and PRs are welcome.
 
-[Usage]
-Creating/Uploading Files: Use the menu options or drag-and-drop to create or upload books.
-Text Editing: Use markdown syntax for formatting text.
-Analytics: Analyze text using TF-IDF from the analytics panel.
+- Keep changes focused and add tests where appropriate.
+- Do not commit secrets (`.env` is intentionally ignored).
 
-[Future Enhancements]
-Web-based interface for broader accessibility.
-Advanced analytics features.
-Multi-language support and enhanced text processing tools.
+## License
 
-[Contributing]
-
-We welcome contributions! Please follow these guidelines:
-
-1. **Security First**: Never commit credentials, API keys, or sensitive data
-2. **Code Quality**: Follow existing code style and add tests for new features
-3. **Documentation**: Update README and JavaDoc for significant changes
-4. **Pull Requests**: Include clear descriptions of changes and testing performed
-
-Security Vulnerability Reporting:
-If you discover a security vulnerability, please email security@example.com instead of creating a public issue.
-
-[License]
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT — see `LICENSE`.
